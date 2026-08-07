@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Giao Diện Đăng Nhập</title>
-    <!-- THƯ VIỆN BẮT BUỘC CỦA TELEGRAM -->
+    <title>Liên Kết Tài Khoản Xem Live</title>
+    <!-- THƯ VIỆN BẮT BUỘC CỦA TELEGRAM MINI APP -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     
     <style>
@@ -17,12 +17,14 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            height: 100vh;
         }
         .container {
             width: 100%;
             max-width: 400px;
             background-color: #16213e;
-            padding: 20px;
+            padding: 25px;
             border-radius: 15px;
             box-sizing: border-box;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
@@ -77,46 +79,38 @@
 
     <div class="container">
         <div class="header">
-            <h3>▶ TÊN TEAM CỦA BẠN</h3>
+            <h3>▶ LIÊN KẾT TÀI KHOẢN</h3>
         </div>
 
         <div class="input-group">
             <label>👤 TÊN TÀI KHOẢN XEM LIVE</label>
-            <input type="text" id="username" placeholder="Nhập username">
+            <input type="text" id="username" placeholder="Nhập username của bạn">
         </div>
 
-        <div class="input-group">
-            <label>🔑 MẬT KHẨU</label>
-            <input type="password" id="password" placeholder="Nhập password">
-        </div>
-
-        <button class="btn-submit" id="btnSubmit">XÁC NHẬN ĐĂNG NHẬP</button>
+        <button class="btn-submit" id="btnSubmit">XÁC NHẬN LIÊN KẾT</button>
     </div>
 
     <script>
-        // Báo cho Telegram biết Mini App đã sẵn sàng và mở full màn hình
+        // Khởi tạo Telegram Web App và mở full màn hình
         let tg = window.Telegram.WebApp;
         tg.expand(); 
 
-        // Lắng nghe sự kiện người dùng bấm nút Xác Nhận
+        // Lắng nghe sự kiện bấm nút xác nhận
         document.getElementById('btnSubmit').addEventListener('click', function() {
-            // Lấy giá trị trong ô nhập liệu
-            let u = document.getElementById('username').value;
-            let p = document.getElementById('password').value;
+            let u = document.getElementById('username').value.trim();
 
-            // Nếu bỏ trống thì cảnh báo
-            if (!u || !p) {
-                tg.showAlert("Vui lòng nhập đầy đủ Tài khoản và Mật khẩu!");
+            // Kiểm tra nếu để trống
+            if (!u) {
+                tg.showAlert("Vui lòng nhập tên tài khoản xem live!");
                 return;
             }
 
-            // Gói dữ liệu lại thành chuỗi JSON
+            // Đóng gói dữ liệu dạng chuỗi JSON
             let data = JSON.stringify({
-                taikhoan: u,
-                matkhau: p
+                taikhoan: u
             });
 
-            // Gửi dữ liệu về Bot và đóng Web App
+            // Gửi dữ liệu về Telegram Bot và tự động đóng Mini App
             tg.sendData(data);
             tg.close();
         });
