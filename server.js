@@ -249,7 +249,7 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
         bot.sendMessage(chatId, `✅ Đã cập nhật ví cho user \`${targetId}\`. Số dư mới: \`${users[targetId].balance.toLocaleString()} VNĐ\``, { parse_mode: 'Markdown' });
         
         bot.sendMessage(targetId, `💰 *BIẾN ĐỘNG SỐ DƯ*\n\nTài khoản của sếp vừa được điều chỉnh: \`${amount > 0 ? '+' : ''}${amount.toLocaleString()} VNĐ\`\n💎 Số dư hiện tại: \`${users[targetId].balance.toLocaleString()} VNĐ\``, { parse_mode: 'Markdown' })
-           .catch(() => {});
+            .catch(() => {});
     });
 
     // 🌟 LỆNH TRÚNG CODE: CẬP NHẬT VÀO DATABASE CHO KHÁCH KÈM THỜI GIAN 24H
@@ -267,7 +267,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
             return;
         }
 
-        // Tạo định dạng thời gian 24h đầy đủ: HH:mm:ss ngày DD/MM/YYYY
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -278,7 +277,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
 
         const formattedTime = `${hours}:${minutes}:${seconds} ngày ${day}/${month}/${year}`;
 
-        // Cập nhật vào danh sách wonCodes của khách trong database
         if (!users[targetId].wonCodes) {
             users[targetId].wonCodes = [];
         }
@@ -291,7 +289,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
         });
         saveDatabase();
 
-        // Gửi thông báo chi tiết đến khách hàng
         const congratText = `
 🎉 *CHÚNG MỪNG SẾP ĐÃ TRÚNG CODE!* 🏆
 --------------------------------------------------
@@ -482,7 +479,7 @@ MINI GAME
         bot.answerCallbackQuery(query.id);
     });
 
-    // XỬ LÝ NHẬP LIỆU VĂN BẢN
+    // XỬ LÝ NHẬP LIỆU VĂN BẢN VÀ HỖ TRỢ SLL (TỐI ĐA 4 ACC)
     bot.on('message', (msg) => {
         const chatId = msg.chat.id;
         const text = msg.text;
@@ -503,40 +500,6 @@ MINI GAME
 
         sendLogToWeb(`💬 Khách [${u.name}] nhắn: ${text}`);
 
-        if (text.includes('|') || text.includes('/')) {
-            let separator = text.includes('|') ? '|' : '/';
-            let parts = text.split(separator).map(s => s.trim());
-
-            if (parts.length >= 2) {
-                let tk = parts[0];
-                let mk = parts[1];
-                let miniCode = parts.length >= 3 ? parts[2] : tk;
-                let brand = parts.length >= 4 ? parts[3] : (userStates[chatId]?.brand || 'SC88');
-
-                if (!u.linkedAccounts[brand]) u.linkedAccounts[brand] = [];
-                if (!u.linkedAccounts[brand].some(a => a.tk.toLowerCase() === tk.toLowerCase())) {
-                    u.linkedAccounts[brand].push({ tk, mk, miniCode });
-                    saveDatabase(); 
-                }
-
-                bot.sendMessage(chatId, `✅ *TIẾP NHẬN TÀI KHOẢN THÀNH CÔNG!*\nTài khoản: \`${tk}\`\nTrang: *${brand}*`, { parse_mode: 'Markdown' });
-                sendLogToWeb(`✅ Khách [${u.name}] liên kết thành công ACC [${tk}] tại ${brand}`);
-
-                if (masterWebSocket && masterWebSocket.readyState === WebSocket.OPEN) {
-                    masterWebSocket.send(JSON.stringify({
-                        action: 'SYNC_TELE_ACCOUNT',
-                        value: { tk: tk, mk: mk, tab: miniCode, brand: brand, sender: u.name },
-                        channel: currentChannel
-                    }));
-                }
-
-                if (userStates[chatId]?.step === 'WAITING_FOR_CREDENTIALS') {
-                    delete userStates[chatId];
-                }
-                return;
-            }
-        }
-
         if (userStates[chatId]?.step === 'WAITING_FOR_DEPOSIT_AMOUNT') {
             const amount = parseInt(text.replace(/\D/g, ''));
             if (amount >= 10000) {
@@ -550,6 +513,112 @@ MINI GAME
             } else {
                 bot.sendMessage(chatId, '⚠️ Số tiền nạp tối thiểu là 10.000 VNĐ!');
             }
+            return;
+        }
+
+        // Xử lý nhập SLL / Liên kết tài khoản
+        const lines = text.split('\n');
+        let successList = [];
+        let duplicateCount = 0;
+        let errorCount = 0;
+        let limitExceededCount = 0;
+        const MAX_ACCOUNTS = 4;
+
+        // Đếm tổng số tài khoản hiện có trên các brand
+        let totalCurrentAccounts = Object.values(u.linkedAccounts).reduce((sum, arr) => sum + arr.length, 0);
+
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
+            if (line === '') continue;
+
+            let parts = line.split('|').map(s => s.trim());
+
+            if (parts.length >= 2) {
+                let tk = parts[0];
+                let mk = parts[1];
+                let miniCode = parts.length >= 3 ? parts[2] : tk;
+                let brand = parts.length >= 4 ? parts[3].toUpperCase() : (userStates[chatId]?.brand || 'SC88');
+
+                if (!u.linkedAccounts[brand]) {
+                    u.linkedAccounts[brand] = [];
+                }
+
+                if (totalCurrentAccounts >= MAX_ACCOUNTS) {
+                    limitExceededCount++;
+                    continue;
+                }
+
+                let isDuplicate = u.linkedAccounts[brand].some(a => a.tk.toLowerCase() === tk.toLowerCase());
+
+                if (isDuplicate) {
+                    duplicateCount++;
+                } else {
+                    u.linkedAccounts[brand].push({ tk, mk, miniCode });
+                    totalCurrentAccounts++;
+                    successList.push(`[${tk}] tại ${brand}`);
+
+                    if (masterWebSocket && masterWebSocket.readyState === WebSocket.OPEN) {
+                        masterWebSocket.send(JSON.stringify({
+                            action: 'SYNC_TELE_ACCOUNT',
+                            value: { tk: tk, mk: mk, tab: miniCode, brand: brand, sender: u.name },
+                            channel: currentChannel
+                        }));
+                    }
+                }
+            } else {
+                errorCount++;
+            }
+        }
+
+        if (successList.length > 0) {
+            saveDatabase();
+        }
+
+        let replyMsg = "";
+        if (successList.length > 0) {
+            let timeNow = new Date().toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+            replyMsg += `🥰 *Ting ting! Chốt đơn ${successList.length} acc lúc ${timeNow}:*\n`;
+            successList.forEach(accInfo => {
+                replyMsg += `👉 ${accInfo}\n`;
+            });
+            replyMsg += `\n`;
+        }
+
+        if (duplicateCount > 0) {
+            replyMsg += `😅 *Quen quen nha!* Bỏ qua **${duplicateCount} acc** đã có sẵn trên hệ thống.\n`;
+        }
+
+        if (limitExceededCount > 0) {
+            replyMsg += `😢 *Giỏ hàng đầy!* Từ chối **${limitExceededCount} acc** (Chỉ được max ${MAX_ACCOUNTS} acc thôi nè).\n`;
+        }
+
+        if (errorCount > 0 && successList.length === 0 && duplicateCount === 0) {
+            replyMsg += `🤪 *Lạc nhịp rồi!* Bỏ qua **${errorCount} dòng** sai cú pháp (Chuẩn: TK | MK | Code | Brand).\n`;
+        }
+
+        if (successList.length === 0) {
+            if (duplicateCount > 0 && limitExceededCount === 0) {
+                replyMsg = `😅 *Toàn hàng cũ!* Các tài khoản này bạn đã liên kết hết từ trước rồi nha.`;
+            } else if (limitExceededCount > 0) {
+                replyMsg = `😢 *Kho đã đầy!* Bạn đã chạm nóc giới hạn ${MAX_ACCOUNTS} tài khoản rồi, không nhét thêm được đâu nè.`;
+            }
+        }
+
+        if (replyMsg !== "") {
+            bot.sendMessage(chatId, replyMsg, { 
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [[
+                        { text: "🌟 Tuyệt!", callback_data: "awesome" }, 
+                        { text: "📜 Lịch sử", callback_data: "customer_center" },
+                        { text: "🚑 Xem mẫu", callback_data: "guide_detail" }
+                    ]]
+                }
+            });
+        }
+
+        if (userStates[chatId]?.step === 'WAITING_FOR_CREDENTIALS') {
+            delete userStates[chatId];
         }
     });
 }
