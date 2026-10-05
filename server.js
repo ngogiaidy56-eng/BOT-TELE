@@ -13,7 +13,7 @@ export default {
     if (request.method === "POST") {
       try {
         const update = await request.json();
-        const botToken = env.BOT_TOKEN || '8971349527:AAGG8lNFWdBj742RADHCG51TAFYUnuDJYYE';
+        const botToken = env.BOT_TOKEN || '8619462252:AAFFVE7SdOAoA6JQn2wYWKwT4jTnYmKVWUs';
         
         // Chạy xử lý ngầm để tránh Timeout cho Telegram
         ctx.waitUntil(handleUpdate(update, botToken, env));
