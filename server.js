@@ -2,17 +2,20 @@
 // ⚙️ CẤU HÌNH HỆ THỐNG CLOUDFLARE WORKER
 // ==========================================
 const ADMIN_ID = '6138197737'; 
+// Cấu hình Database tạm thời trong bộ nhớ (LƯU Ý: Sẽ bị reset khi Worker khởi động lại. Cần dùng Cloudflare KV để lưu trữ lâu dài)
 let users = {}; 
 const userStates = {};
 const userCooldowns = {};
 
 export default {
   async fetch(request, env, ctx) {
+    // 1. Chỉ chấp nhận các request dạng POST từ Telegram Webhook
     if (request.method === "POST") {
       try {
         const update = await request.json();
         const botToken = env.BOT_TOKEN || '8971349527:AAGG8lNFWdBj742RADHCG51TAFYUnuDJYYE';
         
+        // Chạy xử lý ngầm để tránh Timeout cho Telegram
         ctx.waitUntil(handleUpdate(update, botToken, env));
         
         return new Response("OK", { status: 200 });
@@ -38,43 +41,43 @@ async function callTelegramApi(method, payload, botToken) {
 }
 
 // ==========================================
-// 3. HÀM TẠO GIAO DIỆN MENU CHÍNH 
+// 3. HÀM TẠO GIAO DIỆN MENU CHÍNH (CHUẨN MẪU MÀU SẮC)
 // ==========================================
 function getMainMenuKeyboard() {
   return {
     inline_keyboard: [
-      // Hàng 1
+      // Hàng 1: Màu Đỏ (danger) và Xanh lá (success)
       [
         { text: '🚀 MINIGAME LIVE', callback_data: 'minigame', style: 'danger' },
         { text: '🛍️ SHOP CODE', callback_data: 'shop_code', style: 'success' }
       ],
-      // Hàng 2
+      // Hàng 2: Màu Đỏ và Xanh lá
       [
         { text: '💳 NẠP TIỀN', callback_data: 'deposit', style: 'danger' },
         { text: '💎 TRUNG TÂM VIP', callback_data: 'vip', style: 'success' }
       ],
-      // Hàng 3
+      // Hàng 3: Toàn dải Xanh dương đậm (primary)
       [
         { text: '💎 TRUNG TÂM KHÁCH HÀNG', callback_data: 'cskh_center', style: 'primary' }
       ],
-      // Hàng 4: Đã đổi tên NUÔI ACC HỘ thành DỊCH VỤ NUÔI Vietsub
+      // Hàng 4: 
       [
         { text: '🎬 DỊCH VỤ NUÔI Vietsub', callback_data: 'nuoi_vietsub', style: 'success' },
         { text: '🤖 BOT DỊCH VỤ', url: 'https://t.me/your_bot_link', style: 'success' }
       ],
-      // Hàng 5
+      // Hàng 5:
       [
         { text: '💬 NHÓM CHAT', url: 'https://t.me/your_group', style: 'success' },
         { text: '📢 KÊNH THÔNG BÁO', url: 'https://t.me/your_channel', style: 'success' }
       ],
-      // Hàng 6
+      // Hàng 6:
       [
         { text: '🎁 NHẬP GIFCODE', callback_data: 'giftcode', style: 'success' },
         { text: '🎧 LIÊN HỆ CSKH', url: 'https://t.me/your_support', style: 'success' }
       ],
-      // Hàng 7: Đã đổi tên GIỚI THIỆU BẠN BÈ REF thành ADMIN QUẢN LÝ
+      // Hàng 7: Nút dài Xanh dương đậm - Đổi thành ADMIN QUẢN LÝ
       [
-        { text: '🛡️ ADMIN QUẢN LÝ', callback_data: 'admin_panel', style: 'primary' }
+        { text: '👑 ADMIN QUẢN LÝ', callback_data: 'admin_panel', style: 'primary' }
       ]
     ]
   };
@@ -84,12 +87,14 @@ function getMainMenuKeyboard() {
 // 4. LOGIC XỬ LÝ TIN NHẮN & NÚT BẤM
 // ==========================================
 async function handleUpdate(update, botToken, env) {
+  // XỬ LÝ TIN NHẮN VĂN BẢN
   if (update.message && update.message.text) {
     const msg = update.message;
     const chatId = msg.chat.id;
     const text = msg.text;
     const user = msg.from;
 
+    // Khởi tạo user nếu chưa có
     if (!users[chatId]) {
         users[chatId] = {
             name: user.first_name || 'Khách',
@@ -98,11 +103,12 @@ async function handleUpdate(update, botToken, env) {
         };
     }
 
+    // Lệnh /start
     if (text.startsWith('/start')) {
       const u = users[chatId];
       const welcomeMessage = `
 🤖 *BOT HENDY CYBERTECH 2026* [BOT CHÍNH] 🚀
-Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
+Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
 --------------------------------------------------
 💎 *VIP 0*
 💰 **Ví Chính:** \`${u.balance.toLocaleString()} VNĐ\`
@@ -117,6 +123,7 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
       return;
     }
 
+    // Lệnh /admin
     if (text.startsWith('/admin')) {
         if (chatId.toString() !== ADMIN_ID) {
             await callTelegramApi('sendMessage', { chat_id: chatId, text: '⛔ Sếp không có quyền sử dụng bảng điều khiển này!' }, botToken);
@@ -131,14 +138,17 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
     }
   }
 
+  // XỬ LÝ NÚT BẤM (CALLBACK QUERY)
   if (update.callback_query) {
     const query = update.callback_query;
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
     const data = query.data;
 
+    // Đóng trạng thái loading của nút bấm ngay lập tức
     await callTelegramApi('answerCallbackQuery', { callback_query_id: query.id }, botToken);
 
+    // Xử lý nút quay lại Menu Chính
     if (data === 'back_start') {
       const u = users[chatId] || { name: 'Khách', balance: 0 };
       const welcomeMessage = `
@@ -179,22 +189,24 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       subMenuText = '💳 *NẠP TIỀN VÀO HỆ THỐNG*\nVui lòng chọn hình thức nạp tiền bên dưới.';
     } else if (data === 'vip') {
       subMenuText = '💎 *TRUNG TÂM VIP*\nQuyền lợi và các mốc nâng hạng VIP của bạn.';
-    } else if (data === 'cskh_center') {
+    } else if (data === 'cshk_center' || data === 'cskh_center') {
       subMenuText = '💎 *TRUNG TÂM KHÁCH HÀNG*\nQuản lý tài khoản, lịch sử giao dịch và hỗ trợ thành viên.';
     } else if (data === 'nuoi_vietsub') {
-      subMenuText = '🎬 *DỊCH VỤ NUÔI Vietsub*\nHệ thống tự động nuôi và quản lý kênh Vietsub.';
+      subMenuText = '🎬 *DỊCH VỤ NUÔI VIETSUB*\nHệ thống tự động nuôi và hỗ trợ Vietsub chuyên nghiệp.';
     } else if (data === 'giftcode') {
       subMenuText = '🎁 *NHẬP GIFCODE*\nHãy gửi mã quà tặng của bạn vào đây.';
     } else if (data === 'admin_panel') {
+      // Kiểm tra quyền Admin khi bấm nút Admin Quản Lý
       if (chatId.toString() !== ADMIN_ID) {
-        subMenuText = '⛔ Bạn không có quyền truy cập khu vực quản lý này!';
-      } else {
-        subMenuText = '🛡️ *QUẢN TRỊ HỆ THỐNG (ADMIN PANEL)*\nChào sếp, vui lòng chọn thao tác quản lý:';
+        await callTelegramApi('sendMessage', { chat_id: chatId, text: '⛔ Bạn không có quyền truy cập khu vực quản trị này!' }, botToken);
+        return;
       }
+      subMenuText = '👑 *BẢNG ADMIN QUẢN LÝ*\n• Tổng số user: ' + Object.keys(users).length + '\n• Lệnh nhanh: Gõ `/admin` trong khung chat.';
     } else {
       subMenuText = '⚙️ Tính năng đang được phát triển thêm...';
     }
 
+    // Cập nhật nội dung tin nhắn thành menu con tương ứng
     await callTelegramApi('editMessageText', {
       chat_id: chatId,
       message_id: messageId,
