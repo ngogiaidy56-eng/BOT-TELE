@@ -69,7 +69,7 @@ function getMainMenuKeyboard() {
       ],
       // Hàng 7: Nút Quản trị
       [
-        { text: '🛠️ ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub', callback_data: 'admin_panel', style: 'primary' }
+        { text: '🛠️ ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN', callback_data: 'admin_panel', style: 'primary' }
       ]
     ]
   };
