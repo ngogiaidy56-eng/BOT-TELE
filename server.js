@@ -4,7 +4,7 @@
 const ADMIN_ID = '6138197737'; 
 
 // 🔗 Thay đổi đường dẫn Mini App và Web của bạn tại đây
-const MINI_APP_URL = 'https://your-miniapp-url.com'; 
+const MINI_APP_URL = 'https://ngogiaidy56-eng.github.io/BOT-TELE'; 
 const WEB_APP_URL = 'https://your-web-url.com';
 
 let users = {}; 
@@ -16,7 +16,7 @@ export default {
     if (request.method === "POST") {
       try {
         const update = await request.json();
-        const botToken = env.BOT_TOKEN || '8517026315:AAGSFv23fTHx2WFBSP25VJ5_-cBmU197BF8';
+        const botToken = env.BOT_TOKEN || '8517026315:AAELCCiSvwQb-9AWi0VRRMQvT7Pf6rAZzP8';
         
         ctx.waitUntil(handleUpdate(update, botToken, env));
         
