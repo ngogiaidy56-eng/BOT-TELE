@@ -5,7 +5,7 @@ const ADMIN_ID = '6138197737';
 
 let users = {}; 
 const userStates = {};   // Quản lý trạng thái nhập liệu tạm thời
-const BRANDS = ["SC88", "C168", "CM88", "F8BET", "RR88", "MM88", "GG88", "U888", "J88", "88CLB", "ABC8", "XX8"];
+const BRANDS = ["SC88", "C168", "CM88", "F8BET", "RR88", "MM88", "GG88", "U888", "J88", "88CLB", "ABC8", "XX8", "KJC_CU"];
 
 export default {
   async fetch(request, env, ctx) {
@@ -46,8 +46,8 @@ function initUser(chatId, user) {
       balance: 50000,
       history: ["Khởi tạo tài khoản (+50,000 VNĐ)"],
       wonCodes: [],
-      linkedAccounts: { SC88: [], C168: [], CM88: [], F8BET: [], ABCVIP: [] },
-      accountKho: { RR88: [], MM88: [], GG88: [], U888: [], J88: [], "88CLB": [], ABC8: [], XX8: [], ABCVIP: [] }
+      linkedAccounts: { SC88: [], C168: [], CM88: [], F8BET: [], ABCVIP: [], KJC_CU: [] },
+      accountKho: { RR88: [], MM88: [], GG88: [], U888: [], J88: [], "88CLB": [], ABC8: [], XX8: [], ABCVIP: [], KJC_CU: [] }
     };
   }
   return users[chatId];
@@ -65,7 +65,7 @@ function getMainMenuKeyboard() {
       [{ text: '💎 TRUNG TÂM KHÁCH HÀNG', callback_data: 'cshk_center', style: 'primary' }],
       [{ text: '🤖 BOT DỊCH VỤ VIETSUB', callback_data: 'bot_vietsub', style: 'success' }],
       [{ text: '🎧 LIÊN HỆ CSKH', url: 'https://t.me/your_support', style: 'success' }],
-      [{ text: '🛠️ ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub', callback_data: 'admin_panel', style: 'primary' }]
+      [{ text: '🛠️️ ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub', callback_data: 'admin_panel', style: 'primary' }]
     ]
   };
 }
@@ -113,7 +113,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
         const brand = state.brand;
         if (!u.accountKho[brand]) u.accountKho[brand] = [];
         
-        // Thêm tài khoản mới
         u.accountKho[brand].push({ acc: text, checked: true });
         delete userStates[chatId];
 
@@ -135,8 +134,8 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
         u.history.push(`Liên kết tài khoản ${brand}:${text}`);
 
         delete userStates[chatId];
-        const successMsg = `✅ *LIÊN KẾT THÀNH CÔNG!*\n\n🏢 Nhà cái: *${brand}*\n🔑 Tài khoản: \`${text}\``;
-        const kb = { inline_keyboard: [[{ text: "◀ Quay lại Trung Tâm KH", callback_data: "cshk_center", style: "primary" }]] };
+        const successMsg = `✅ *LIÊN KẾT THÀNH CÔNG!*\n\n🏢 Sảnh: *${brand}*\n🔑 Tài khoản: \`${text}\``;
+        const kb = { inline_keyboard: [[{ text: "◀ Quay lại", callback_data: brand === "KJC_CU" ? "shop_kjc_cu_kho" : "cshk_center", style: "primary" }]] };
         await callTelegramApi('sendMessage', { chat_id: chatId, text: successMsg, parse_mode: 'Markdown', reply_markup: kb }, botToken);
         return;
       }
@@ -214,24 +213,67 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
         inline_keyboard: [
           [
             { text: '🚀 Liên Minh KJC', callback_data: 'shop_kjc', style: 'success' },
-            { text: '🚀 QQ88 78Win SC88 C168', callback_data: 'shop_qq88_group', style: 'success' }
+            { text: '🚀 Liên Minh KJC CŨ', callback_data: 'shop_kjc_cu', style: 'success' }
           ],
           [
-            { text: '🚀 RR88 MM88 GG88', callback_data: 'shop_rr88_group', style: 'success' },
             { text: '🚀 Liên Minh ABCVIP', callback_data: 'shop_abcvip_group', style: 'success' }
           ],
           [
-            { text: '⚙️ AUTO ĐẶT LẠI', callback_data: 'shop_auto_reset', style: 'primary' },
-            { text: '💥 TRÚNG KHÔNG PHÁT', callback_data: 'shop_trung_khong_phat', style: 'danger' }
-          ],
-          [
-            { text: '🐶 TRỜ VỀ MENU CHÍNH', callback_data: 'back_start', style: 'primary' }
+            { text: '🐶 TRỞ VỀ MENU CHÍNH', callback_data: 'back_start', style: 'primary' }
           ]
         ]
       };
     }
 
-    // 1. LIÊN MINH ABCVIP
+    // 1. LIÊN MINH KJC CŨ (Bao gồm RR88, MM88, GG88 & Kho Acc Liên Kết)
+    else if (data === 'shop_kjc_cu') {
+      const rr88Count = (u.accountKho.RR88 || []).length;
+      const mm88Count = (u.accountKho.MM88 || []).length;
+      const gg88Count = (u.accountKho.GG88 || []).length;
+
+      subMenuText = (
+        `🎮 *LIÊN MINH KJC CŨ (RR88 • MM88 • GG88)*\n` +
+        `----------------------------------------\n` +
+        `👤 Chào *${u.name}*\n` +
+        `📊 *THỐNG KÊ KHO ACC:*\n` +
+        `• Kho RR88: \`${rr88Count}\` tài khoản\n` +
+        `• Kho MM88: \`${mm88Count}\` tài khoản\n` +
+        `• Kho GG88: \`${gg88Count}\` tài khoản\n` +
+        `✅ Liên kết thành công tài khoản: \`${(u.linkedAccounts.KJC_CU || []).length}\``
+      );
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [{ text: '🎮 RR88 MINI GAME', callback_data: 'shop_kho_detail_RR88', style: 'success' }],
+          [{ text: '🎮 MM88 MINI GAME', callback_data: 'shop_kho_detail_MM88', style: 'success' }],
+          [{ text: '🎮 GG88 MINI GAME', callback_data: 'shop_kho_detail_GG88', style: 'success' }],
+          [{ text: '🌊 【KHO ACC KJC CŨ LIÊN KẾT BOT】', callback_data: 'shop_kjc_cu_kho', style: 'primary' }],
+          [{ text: '« QUAY LẠI', callback_data: 'shop_code_mini', style: 'primary' }]
+        ]
+      };
+    }
+
+    // 2. KHO ACC KJC CŨ LIÊN KẾT BOT
+    else if (data === 'shop_kjc_cu_kho') {
+      const accList = u.linkedAccounts.KJC_CU || [];
+      let str = accList.length > 0 ? accList.map((a, i) => `${i+1}. \`${a}\``).join('\n') : 'Bạn chưa liên kết tài khoản KJC CŨ nào.';
+      subMenuText = `🚀 *LIÊN MINH KJC CŨ*\n\n🎁 *KHO TÀI KHOẢN KJC CŨ ĐÃ LIÊN KẾT:*\n\n${str}`;
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [{ text: '➕ THÊM LIÊN KẾT MỚI (AUTO)', callback_data: 'link_KJC_CU', style: 'success' }],
+          [{ text: '❌ XÓA LIÊN KẾT', callback_data: 'clear_link_KJC_CU', style: 'danger' }],
+          [{ text: '« Quay lại', callback_data: 'shop_kjc_cu', style: 'primary' }]
+        ]
+      };
+    }
+
+    // Xóa liên kết KJC CŨ
+    else if (data === 'clear_link_KJC_CU') {
+      u.linkedAccounts.KJC_CU = [];
+      subMenuText = `🗑️ Đã xóa toàn bộ liên kết tài khoản Liên Minh KJC CŨ!`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_kjc_cu_kho', style: 'primary' }]] };
+    }
+
+    // 3. LIÊN MINH ABCVIP
     else if (data === 'shop_abcvip_group') {
       subMenuText = (
         `📊 *THỐNG KÊ ĐƠN ABCVIP:*\n` +
@@ -257,7 +299,7 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // 2. KHO ACC ABCVIP LIÊN KẾT
+    // 4. KHO ACC ABCVIP LIÊN KẾT
     else if (data === 'shop_abcvip_kho') {
       const accList = u.linkedAccounts.ABCVIP || [];
       let str = accList.length > 0 ? accList.map((a, i) => `${i+1}. \`${a}\``).join('\n') : 'Bạn chưa liên kết tài khoản ABCVIP nào.';
@@ -271,32 +313,7 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // 3. RR88 MM88 GG88 GROUP
-    else if (data === 'shop_rr88_group') {
-      const rr88Count = (u.accountKho.RR88 || []).length;
-      const mm88Count = (u.accountKho.MM88 || []).length;
-      const gg88Count = (u.accountKho.GG88 || []).length;
-
-      subMenuText = (
-        `🎮 *RR88 • MM88 • GG88 MINIGAME*\n` +
-        `----------------------------------------\n` +
-        `👤 Chào *${u.name}*\n` +
-        `📊 *THỐNG KÊ KHO ACC:*\n` +
-        `• Kho RR88: \`${rr88Count}\` tài khoản\n` +
-        `• Kho MM88: \`${mm88Count}\` tài khoản\n` +
-        `• Kho GG88: \`${gg88Count}\` tài khoản`
-      );
-      subMenuKeyboard = {
-        inline_keyboard: [
-          [{ text: '🎮 RR88 MINI GAME', callback_data: 'shop_kho_detail_RR88', style: 'success' }],
-          [{ text: '🎮 MM88 MINI GAME', callback_data: 'shop_kho_detail_MM88', style: 'success' }],
-          [{ text: '🎮 GG88 MINI GAME', callback_data: 'shop_kho_detail_GG88', style: 'success' }],
-          [{ text: '« QUAY LẠI', callback_data: 'shop_code_mini', style: 'primary' }]
-        ]
-      };
-    }
-
-    // 4. HIỂN THỊ CHI TIẾT KHO ACC CỦA TỪNG THƯƠNG HIỆU (GG88, RR88, MM88, U888...)
+    // 5. HIỂN THỊ CHI TIẾT KHO ACC CỦA TỪNG THƯƠNG HIỆU
     else if (data.startsWith('shop_kho_detail_')) {
       const brand = data.replace('shop_kho_detail_', '');
       const list = u.accountKho[brand] || [];
@@ -354,21 +371,9 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_abcvip_kho', style: 'primary' }]] };
     }
 
-    // Các tính năng phụ trong Shop Code Mini
+    // Tính năng phụ KJC
     else if (data === 'shop_kjc') {
       subMenuText = `🚀 *LIÊN MINH KJC*\nĐang cập nhật các gói code quà tặng KJC mới nhất...`;
-      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
-    }
-    else if (data === 'shop_qq88_group') {
-      subMenuText = `🚀 *SẢNH QQ88 - 78WIN - SC88 - C168*\nHệ thống quét mã code tự động đang kết nối sảnh...`;
-      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
-    }
-    else if (data === 'shop_auto_reset') {
-      subMenuText = `⚙️ *CÀI ĐẶT AUTO ĐẶT LẠI*\nTrạng thái Auto Reset: *Đang bật* ✅`;
-      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
-    }
-    else if (data === 'shop_trung_khong_phat') {
-      subMenuText = `💥 *CHẾ ĐỘ TRÚNG KHÔNG PHÁT*\nTrạng thái: *Tắt* ❌`;
       subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
     }
 
@@ -418,7 +423,7 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
         let accs = u.linkedAccounts[brand] || [];
         linkedInfo += `• *${brand}*: ${accs.length > 0 ? accs.join(', ') : 'Chưa liên kết'}\n`;
       });
-      subMenuText = `🔗 *QUẢN LÝ LIÊN KẾT NHÀ CÁI*\n\n${linkedInfo}\n👇 Chọn nhà cái cần thao tác:`;
+      subMenuText = `🔗 *QUẢN LÝ LIÊN KẾT NHÀ CÁI*\n\n${linkedInfo}\n👇 Chọn sảnh cần thao tác:`;
       subMenuKeyboard = {
         inline_keyboard: [
           [{ text: '🔗 SC88', callback_data: 'link_SC88', style: 'success' }, { text: '🔗 C168', callback_data: 'link_C168', style: 'success' }],
