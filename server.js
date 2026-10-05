@@ -3,10 +3,9 @@
 // ==========================================
 const ADMIN_ID = '6138197737'; 
 
-// Database tạm trong bộ nhớ (Hỗ trợ mở rộng lên Cloudflare KV / D1 sau này)
 let users = {}; 
-const userStates = {};   // Quản lý trạng thái nhập liệu tạm thời của khách
-const BRANDS = ["SC88", "C168", "CM88", "F8BET"];
+const userStates = {};   // Quản lý trạng thái nhập liệu tạm thời
+const BRANDS = ["SC88", "C168", "CM88", "F8BET", "RR88", "MM88", "GG88", "U888", "J88", "88CLB", "ABC8", "XX8"];
 
 export default {
   async fetch(request, env, ctx) {
@@ -39,33 +38,34 @@ async function callTelegramApi(method, payload, botToken) {
   });
 }
 
+// Helper khởi tạo dữ liệu người dùng
+function initUser(chatId, user) {
+  if (!users[chatId]) {
+    users[chatId] = {
+      name: user ? (user.first_name || 'Khách') : 'Khách',
+      balance: 50000,
+      history: ["Khởi tạo tài khoản (+50,000 VNĐ)"],
+      wonCodes: [],
+      linkedAccounts: { SC88: [], C168: [], CM88: [], F8BET: [], ABCVIP: [] },
+      accountKho: { RR88: [], MM88: [], GG88: [], U888: [], J88: [], "88CLB": [], ABC8: [], XX8: [], ABCVIP: [] }
+    };
+  }
+  return users[chatId];
+}
+
 // ==========================================
 // 3. HÀM TẠO GIAO DIỆN MENU CHÍNH
 // ==========================================
 function getMainMenuKeyboard() {
   return {
     inline_keyboard: [
-      [
-        { text: '🛍️ TRUNG TÂM MUA CODE MINI TRỰC TIẾP', callback_data: 'shop_code_mini', style: 'success' }
-      ],
-      [
-        { text: '🌐 DỊCH VỤ MẠNG XÃ HỘI', callback_data: 'social_service', style: 'success' }
-      ],
-      [
-        { text: '💳 NẠP TIỀN', callback_data: 'deposit', style: 'danger' }
-      ],
-      [
-        { text: '💎 TRUNG TÂM KHÁCH HÀNG', callback_data: 'cskh_center', style: 'primary' }
-      ],
-      [
-        { text: '🤖 BOT DỊCH VỤ VIETSUB', callback_data: 'bot_vietsub', style: 'success' }
-      ],
-      [
-        { text: '🎧 LIÊN HỆ CSKH', url: 'https://t.me/your_support', style: 'success' }
-      ],
-      [
-        { text: '🛠️ ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub', callback_data: 'admin_panel', style: 'primary' }
-      ]
+      [{ text: '🛍️ TRUNG TÂM MUA CODE MINI TRỰC TIẾP', callback_data: 'shop_code_mini', style: 'success' }],
+      [{ text: '🌐 DỊCH VỤ MẠNG XÃ HỘI', callback_data: 'social_service', style: 'success' }],
+      [{ text: '💳 NẠP TIỀN', callback_data: 'deposit', style: 'danger' }],
+      [{ text: '💎 TRUNG TÂM KHÁCH HÀNG', callback_data: 'cshk_center', style: 'primary' }],
+      [{ text: '🤖 BOT DỊCH VỤ VIETSUB', callback_data: 'bot_vietsub', style: 'success' }],
+      [{ text: '🎧 LIÊN HỆ CSKH', url: 'https://t.me/your_support', style: 'success' }],
+      [{ text: '🛠️ ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub', callback_data: 'admin_panel', style: 'primary' }]
     ]
   };
 }
@@ -82,25 +82,11 @@ async function handleUpdate(update, botToken, env) {
     const msg = update.message;
     const chatId = msg.chat.id.toString();
     const text = msg.text.trim();
-    const user = msg.from;
-
-    // Khởi tạo thông tin user nếu chưa có
-    if (!users[chatId]) {
-        users[chatId] = {
-            name: user.first_name || 'Khách',
-            balance: 50000, // Mặc định test 50k để chạy thử tính năng trừ tiền
-            voucher: 0, 
-            wonCodes: [], 
-            linkedAccounts: { SC88: [], C168: [], CM88: [], F8BET: [] }
-        };
-    }
-    const u = users[chatId];
+    const u = initUser(chatId, msg.from);
 
     // Lệnh /start
     if (text.startsWith('/start')) {
-      // Xóa mọi trạng thái cũ nếu có
       delete userStates[chatId];
-
       const welcomeMessage = `
 🤖 *BOT HENDY CYBERTECH 2026* [BOT CHÍNH] 🚀
 Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
@@ -108,7 +94,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
 💎 *VIP 0*
 💰 **Ví Chính:** \`${u.balance.toLocaleString()} VNĐ\`
       `;
-
       await callTelegramApi('sendMessage', {
         chat_id: chatId,
         text: welcomeMessage,
@@ -118,111 +103,64 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
       return;
     }
 
-    // Lệnh /admin
-    if (text.startsWith('/admin')) {
-        if (chatId !== ADMIN_ID) {
-            await callTelegramApi('sendMessage', { chat_id: chatId, text: '⛔ Sếp không có quyền sử dụng bảng điều khiển này!' }, botToken);
-            return;
-        }
-        await callTelegramApi('sendMessage', { 
-            chat_id: chatId, 
-            text: '🛠️ *BẢNG QUẢN TRỊ HỆ THỐNG*\n• /status\n• /user [ID]', 
-            parse_mode: 'Markdown' 
-        }, botToken);
-        return;
-    }
-
     // KIỂM TRA TRẠNG THÁI NHẬP LIỆU TẠM THỜI (user_states)
     if (userStates[chatId]) {
       const state = userStates[chatId];
       const action = state.action;
 
-      // 1. XỬ LÝ LIÊN KẾT TÀI KHOẢN NHÀ CÁI
-      if (action === 'waiting_link_account') {
+      // 1. NHẬP ACC VÀO KHO TRONG SHOP MINI CODE
+      if (action === 'waiting_add_acc') {
         const brand = state.brand;
+        if (!u.accountKho[brand]) u.accountKho[brand] = [];
         
-        // Lưu tài khoản vào database tạm
-        if (!u.linkedAccounts[brand]) u.linkedAccounts[brand] = [];
-        u.linkedAccounts[brand].push(text);
-
+        // Thêm tài khoản mới
+        u.accountKho[brand].push({ acc: text, checked: true });
         delete userStates[chatId];
-        
-        const successMsg = (
-            `✅ *LIÊN KẾT THÀNH CÔNG!*\n\n` +
-            `🏢 Nhà cái: *${brand}*\n` +
-            `🔑 Tài khoản: \`${text}\`\n\n` +
-            `Hệ thống đã đồng bộ dữ liệu bảo mật lên đám mây.`
-        );
+
+        const successMsg = `✅ *THÊM TÀI KHOẢN THÀNH CÔNG!*\n\n📦 Kho: *${brand}*\n🔑 Thông tin: \`${text}\``;
         const kb = {
           inline_keyboard: [
-            [{ text: "◀ Quay lại Trung Tâm KH", callback_data: "cshk_center", style: "primary" }]
+            [{ text: "◀ Quay lại Kho " + brand, callback_data: "shop_kho_detail_" + brand, style: "primary" }]
           ]
         };
-        await callTelegramApi('sendMessage', {
-          chat_id: chatId,
-          text: successMsg,
-          parse_mode: 'Markdown',
-          reply_markup: kb
-        }, botToken);
+        await callTelegramApi('sendMessage', { chat_id: chatId, text: successMsg, parse_mode: 'Markdown', reply_markup: kb }, botToken);
         return;
       }
 
-      // 2. XỬ LÝ TĂNG MẮT LIVE TỰ ĐỘNG & KHẤU TRỪ TIỀN
+      // 2. LIÊN KẾT TÀI KHOẢN NHÀ CÁI
+      if (action === 'waiting_link_account') {
+        const brand = state.brand;
+        if (!u.linkedAccounts[brand]) u.linkedAccounts[brand] = [];
+        u.linkedAccounts[brand].push(text);
+        u.history.push(`Liên kết tài khoản ${brand}:${text}`);
+
+        delete userStates[chatId];
+        const successMsg = `✅ *LIÊN KẾT THÀNH CÔNG!*\n\n🏢 Nhà cái: *${brand}*\n🔑 Tài khoản: \`${text}\``;
+        const kb = { inline_keyboard: [[{ text: "◀ Quay lại Trung Tâm KH", callback_data: "cshk_center", style: "primary" }]] };
+        await callTelegramApi('sendMessage', { chat_id: chatId, text: successMsg, parse_mode: 'Markdown', reply_markup: kb }, botToken);
+        return;
+      }
+
+      // 3. BUFF MẮT LIVE
       if (action === 'waiting_live_link') {
         const platform = state.platform;
-        const cost = platform === "TikTok" ? 10000 : 15000; // 10k cho TikTok, 15k cho Facebook
+        const cost = platform === "TikTok" ? 10000 : 15000;
         
-        // Kiểm tra số dư
         if (u.balance < cost) {
           delete userStates[chatId];
-          const errorMsg = (
-              `❌ *GIAO DỊCH THẤT BẠI*\n\n` +
-              `Số dư tài khoản (\`${u.balance.toLocaleString()} VNĐ\`) không đủ để mua 1,000 mắt Live ${platform}.\n` +
-              `💰 Chi phí cần có: \`${cost.toLocaleString()} VNĐ\`.\n\n` +
-              `Vui lòng nạp thêm tiền để tiếp tục sử dụng dịch vụ!`
-          );
-          const kb = {
-            inline_keyboard: [
-              [{ text: "💳 Nạp Tiền", callback_data: "deposit", style: "danger" },
-               { text: "🔙 Menu Chính", callback_data: "back_start", style: "primary" }]
-            ]
-          };
-          await callTelegramApi('sendMessage', {
-            chat_id: chatId,
-            text: errorMsg,
-            parse_mode: 'Markdown',
-            reply_markup: kb
-          }, botToken);
+          const errorMsg = `❌ *GIAO DỊCH THẤT BẠI*\nSố dư (\`${u.balance.toLocaleString()} VNĐ\`) không đủ mua 1K mắt ${platform}.`;
+          const kb = { inline_keyboard: [[{ text: "💳 Nạp Tiền", callback_data: "deposit", style: "danger" }, { text: "🔙 Menu", callback_data: "back_start", style: "primary" }]] };
+          await callTelegramApi('sendMessage', { chat_id: chatId, text: errorMsg, parse_mode: 'Markdown', reply_markup: kb }, botToken);
           return;
         }
 
-        // Trừ tiền và cập nhật balance
         u.balance -= cost;
+        u.history.push(`Mua 1K mắt ${platform} Live (-${cost.toLocaleString()} VNĐ)`);
         delete userStates[chatId];
 
-        const successBuff = (
-            `🚀 *KHỞI TẠO TIẾN TRÌNH BUFF MẮT THÀNH CÔNG!*\n` +
-            `--------------------------------------------------\n` +
-            `🎵 Nền tảng: *${platform} Live*\n` +
-            `🔗 Liên kết: ${text}\n` +
-            `👁️ Số lượng: \`1,000 mắt\`\n` +
-            `💰 Khấu trừ: \`-${cost.toLocaleString()} VNĐ\`\n` +
-            `💵 Số dư còn lại: \`${u.balance.toLocaleString()} VNĐ\`\n` +
-            `--------------------------------------------------\n` +
-            `⏱️ Mắt sẽ bắt đầu tăng đều sau 1-3 phút!`
-        );
-        const kb = {
-          inline_keyboard: [
-            [{ text: "🔙 Quay lại Menu Chính", callback_data: "back_start", style: "primary" }]
-          ]
-        };
-        await callTelegramApi('sendMessage', {
-          chat_id: chatId,
-          text: successBuff,
-          parse_mode: 'Markdown',
-          disable_web_page_preview: true,
-          reply_markup: kb
-        }, botToken);
+        const successBuff = `🚀 *BUFF MẮT THÀNH CÔNG!*\n🎵 Nền tảng: *${platform}*\n🔗 Link: ${text}\n💰 Trừ: \`-${cost.toLocaleString()} VNĐ\`\n💵 Số dư còn lại: \`${u.balance.toLocaleString()} VNĐ\``;
+        const kb = { inline_keyboard: [[{ text: "🔙 Quay lại Menu Chính", callback_data: "back_start", style: "primary" }]] };
+        await callTelegramApi('sendMessage', { chat_id: chatId, text: successBuff, parse_mode: 'Markdown', reply_markup: kb }, botToken);
         return;
       }
     }
@@ -237,16 +175,10 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
     const messageId = query.message.message_id;
     const data = query.data;
 
-    // Đảm bảo user có dữ liệu
-    if (!users[chatId]) {
-        users[chatId] = { name: 'Khách', balance: 50000, linkedAccounts: { SC88: [], C168: [], CM88: [], F8BET: [] } };
-    }
-    const u = users[chatId];
-
-    // Xác nhận đã bấm nút với Telegram để mất hiệu ứng loading
+    const u = initUser(chatId, query.from);
     await callTelegramApi('answerCallbackQuery', { callback_query_id: query.id }, botToken);
 
-    // 1. Nút quay về Menu chính
+    // 1. Nút Quay về Menu chính
     if (data === 'back_start') {
       delete userStates[chatId];
       const welcomeMessage = `
@@ -273,16 +205,174 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       ]
     };
 
-    // 2. Xử lý các menu chức năng
+    // ==========================================
+    // 🛍️ TRUNG TÂM MUA CODE MINI TRỰC TIẾP
+    // ==========================================
     if (data === 'shop_code_mini') {
-      subMenuText = '🛍️ *TRUNG TÂM MUA CODE MINI TRỰC TIẾP*\nVui lòng chọn các gói mã code trực tiếp bên dưới:';
+      subMenuText = `🛍️ *TRUNG TÂM MUA CODE MINI TRỰC TIẾP*\n\nVui lòng chọn sảnh hoặc gói mã code bên dưới:`;
       subMenuKeyboard = {
         inline_keyboard: [
-          [{ text: '🎮 Mua Code V2 Liên Kết', callback_data: 'buy_v2', style: 'success' }],
-          [{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start', style: 'primary' }]
+          [
+            { text: '🚀 Liên Minh KJC', callback_data: 'shop_kjc', style: 'success' },
+            { text: '🚀 QQ88 78Win SC88 C168', callback_data: 'shop_qq88_group', style: 'success' }
+          ],
+          [
+            { text: '🚀 RR88 MM88 GG88', callback_data: 'shop_rr88_group', style: 'success' },
+            { text: '🚀 Liên Minh ABCVIP', callback_data: 'shop_abcvip_group', style: 'success' }
+          ],
+          [
+            { text: '⚙️ AUTO ĐẶT LẠI', callback_data: 'shop_auto_reset', style: 'primary' },
+            { text: '💥 TRÚNG KHÔNG PHÁT', callback_data: 'shop_trung_khong_phat', style: 'danger' }
+          ],
+          [
+            { text: '🐶 TRỜ VỀ MENU CHÍNH', callback_data: 'back_start', style: 'primary' }
+          ]
         ]
       };
-    } 
+    }
+
+    // 1. LIÊN MINH ABCVIP
+    else if (data === 'shop_abcvip_group') {
+      subMenuText = (
+        `📊 *THỐNG KÊ ĐƠN ABCVIP:*\n` +
+        `🔴 Tổng đơn đang chạy: \`0\`\n` +
+        `>> U888: \`0\`\n` +
+        `>> J88: \`0\`\n` +
+        `>> 88CLB: \`0\`\n` +
+        `>> ABC8: \`0\`\n` +
+        `>> XX8: \`0\`\n` +
+        `⏳ Đang chờ duyệt: \`0\`\n` +
+        `✅ Liên kết thành công tài khoản: \`${(u.linkedAccounts.ABCVIP || []).length}\``
+      );
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [{ text: '❤️ U888 MINIGAME', callback_data: 'shop_kho_detail_U888', style: 'success' }],
+          [{ text: '❤️ J88 MINIGAME', callback_data: 'shop_kho_detail_J88', style: 'success' }],
+          [{ text: '❤️ 88CLB MINIGAME', callback_data: 'shop_kho_detail_88CLB', style: 'success' }],
+          [{ text: '❤️ ABC8 MINIGAME', callback_data: 'shop_kho_detail_ABC8', style: 'success' }],
+          [{ text: '❤️ XX8 MINIGAME', callback_data: 'shop_kho_detail_XX8', style: 'success' }],
+          [{ text: '🌊 【KHO ACC ABCVIP LIÊN KẾT BOT】', callback_data: 'shop_abcvip_kho', style: 'primary' }],
+          [{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]
+        ]
+      };
+    }
+
+    // 2. KHO ACC ABCVIP LIÊN KẾT
+    else if (data === 'shop_abcvip_kho') {
+      const accList = u.linkedAccounts.ABCVIP || [];
+      let str = accList.length > 0 ? accList.map((a, i) => `${i+1}. \`${a}\``).join('\n') : 'Bạn chưa liên kết tài khoản ABCVIP nào.';
+      subMenuText = `LIÊN MINH ABCVIP\n\n🎁 *KHO TÀI KHOẢN ABCVIP CỦA BẠN:*\n\n${str}`;
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [{ text: '➕ THÊM LIÊN KẾT MỚI (AUTO)', callback_data: 'link_ABCVIP', style: 'success' }],
+          [{ text: '❌ XÓA LIÊN KẾT', callback_data: 'clear_link_ABCVIP', style: 'danger' }],
+          [{ text: '« Quay lại', callback_data: 'shop_abcvip_group', style: 'primary' }]
+        ]
+      };
+    }
+
+    // 3. RR88 MM88 GG88 GROUP
+    else if (data === 'shop_rr88_group') {
+      const rr88Count = (u.accountKho.RR88 || []).length;
+      const mm88Count = (u.accountKho.MM88 || []).length;
+      const gg88Count = (u.accountKho.GG88 || []).length;
+
+      subMenuText = (
+        `🎮 *RR88 • MM88 • GG88 MINIGAME*\n` +
+        `----------------------------------------\n` +
+        `👤 Chào *${u.name}*\n` +
+        `📊 *THỐNG KÊ KHO ACC:*\n` +
+        `• Kho RR88: \`${rr88Count}\` tài khoản\n` +
+        `• Kho MM88: \`${mm88Count}\` tài khoản\n` +
+        `• Kho GG88: \`${gg88Count}\` tài khoản`
+      );
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [{ text: '🎮 RR88 MINI GAME', callback_data: 'shop_kho_detail_RR88', style: 'success' }],
+          [{ text: '🎮 MM88 MINI GAME', callback_data: 'shop_kho_detail_MM88', style: 'success' }],
+          [{ text: '🎮 GG88 MINI GAME', callback_data: 'shop_kho_detail_GG88', style: 'success' }],
+          [{ text: '« QUAY LẠI', callback_data: 'shop_code_mini', style: 'primary' }]
+        ]
+      };
+    }
+
+    // 4. HIỂN THỊ CHI TIẾT KHO ACC CỦA TỪNG THƯƠNG HIỆU (GG88, RR88, MM88, U888...)
+    else if (data.startsWith('shop_kho_detail_')) {
+      const brand = data.replace('shop_kho_detail_', '');
+      const list = u.accountKho[brand] || [];
+      const total = list.length;
+      const checked = list.filter(item => item.checked).length;
+      const unchecked = total - checked;
+
+      const emptyNotice = total === 0 ? '\n\n_Kho chưa có tài khoản nào._' : '';
+
+      subMenuText = (
+        `📦 *KHO ACC ${brand}*\n` +
+        `----------------------------------------\n` +
+        `📊 Tổng: \`${total}/50\` tài khoản\n` +
+        `✅ Đã check: \`${checked}\` \n` +
+        `⏳ Chưa check: \`${unchecked}\` \n` +
+        `----------------------------------------` +
+        emptyNotice
+      );
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [{ text: '➕ THÊM ACC VÀO KHO', callback_data: `add_acc_${brand}`, style: 'success' }],
+          [{ text: '🔍 CHECK ACC', callback_data: `check_acc_${brand}`, style: 'primary' }],
+          [{ text: '🗑️ XÓA ACC', callback_data: `clear_acc_${brand}`, style: 'danger' }],
+          [{ text: '« QUAY LẠI', callback_data: 'shop_code_mini', style: 'primary' }]
+        ]
+      };
+    }
+
+    // Nút Thêm Acc vào kho
+    else if (data.startsWith('add_acc_')) {
+      const brand = data.replace('add_acc_', '');
+      userStates[chatId] = { action: 'waiting_add_acc', brand: brand };
+      subMenuText = `➕ *THÊM ACC VÀO KHO ${brand}*\n\n👉 Vui lòng nhập **Tài khoản | Mật khẩu** của bạn vào khung chat:`;
+    }
+
+    // Nút Check Acc
+    else if (data.startsWith('check_acc_')) {
+      const brand = data.replace('check_acc_', '');
+      subMenuText = `🔍 *KIỂM TRA TÀI KHOẢN ${brand}*\n\nHệ thống đã quét toàn bộ tài khoản trong kho. Tất cả tài khoản hợp lệ!`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: `shop_kho_detail_${brand}`, style: 'primary' }]] };
+    }
+
+    // Nút Xóa Acc trong kho
+    else if (data.startsWith('clear_acc_')) {
+      const brand = data.replace('clear_acc_', '');
+      u.accountKho[brand] = [];
+      subMenuText = `🗑️ Đã xóa toàn bộ tài khoản trong kho *${brand}*!`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: `shop_kho_detail_${brand}`, style: 'primary' }]] };
+    }
+
+    // Xóa liên kết ABCVIP
+    else if (data === 'clear_link_ABCVIP') {
+      u.linkedAccounts.ABCVIP = [];
+      subMenuText = `🗑️ Đã xóa toàn bộ liên kết tài khoản ABCVIP!`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_abcvip_kho', style: 'primary' }]] };
+    }
+
+    // Các tính năng phụ trong Shop Code Mini
+    else if (data === 'shop_kjc') {
+      subMenuText = `🚀 *LIÊN MINH KJC*\nĐang cập nhật các gói code quà tặng KJC mới nhất...`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
+    }
+    else if (data === 'shop_qq88_group') {
+      subMenuText = `🚀 *SẢNH QQ88 - 78WIN - SC88 - C168*\nHệ thống quét mã code tự động đang kết nối sảnh...`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
+    }
+    else if (data === 'shop_auto_reset') {
+      subMenuText = `⚙️ *CÀI ĐẶT AUTO ĐẶT LẠI*\nTrạng thái Auto Reset: *Đang bật* ✅`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
+    }
+    else if (data === 'shop_trung_khong_phat') {
+      subMenuText = `💥 *CHẾ ĐỘ TRÚNG KHÔNG PHÁT*\nTrạng thái: *Tắt* ❌`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini', style: 'primary' }]] };
+    }
+
+    // --- MENU MẠNG XÃ HỘI & NẠP TIỀN ---
     else if (data === 'social_service') {
       subMenuText = '🌐 *DỊCH VỤ MẠNG XÃ HỘI*\nHệ thống buff tương tác tự động. Vui lòng chọn dịch vụ:';
       subMenuKeyboard = {
@@ -293,61 +383,82 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
         ]
       };
     } 
-    // Kích hoạt trạng thái nhập link buff mắt TikTok
     else if (data === 'buff_tiktok') {
       userStates[chatId] = { action: 'waiting_live_link', platform: 'TikTok' };
-      subMenuText = '🎵 *BUFF 1K MẮT TIKTOK LIVE*\n\n👉 Vui lòng gửi **Link hoặc Username Livestream TikTok** của bạn ngay vào khung chat:';
+      subMenuText = '🎵 *BUFF 1K MẮT TIKTOK LIVE*\n\n👉 Gửi **Link hoặc Username Livestream TikTok** vào khung chat:';
     }
-    // Kích hoạt trạng thái nhập link buff mắt Facebook
     else if (data === 'buff_fb') {
       userStates[chatId] = { action: 'waiting_live_link', platform: 'Facebook' };
-      subMenuText = '📘 *BUFF 1K MẮT FACEBOOK LIVE*\n\n👉 Vui lòng gửi **Link bài viết Livestream Facebook** của bạn ngay vào khung chat:';
+      subMenuText = '📘 *BUFF 1K MẮT FACEBOOK LIVE*\n\n👉 Gửi **Link Livestream Facebook** vào khung chat:';
     }
     else if (data === 'deposit') {
       subMenuText = '💳 *NẠP TIỀN VÀO HỆ THỐNG*\nChuyển khoản tự động qua Momo/Banking.\nSố dư hiện tại của bạn: `' + u.balance.toLocaleString() + ' VNĐ`';
     } 
+
+    // --- TRUNG TÂM KHÁCH HÀNG ---
     else if (data === 'cshk_center') {
-      // Liệt kê tài khoản đã liên kết
+      subMenuText = `💎 *TRUNG TÂM KHÁCH HÀNG*\nQuản lý thông tin tài khoản và liên kết nhà cái của bạn:`;
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [
+            { text: '🔗 Liên kết Nhà Cái', callback_data: 'cskh_link_menu', style: 'success' },
+            { text: '📊 Lịch Sử Giao Dịch', callback_data: 'cskh_history', style: 'success' }
+          ],
+          [
+            { text: '🎟️ Mã Code Đã Sưu Tầm', callback_data: 'cskh_codes', style: 'success' },
+            { text: '⚙ Thông Tin Tài Khoản', callback_data: 'cskh_info', style: 'success' }
+          ],
+          [{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start', style: 'primary' }]
+        ]
+      };
+    }
+    else if (data === 'cskh_link_menu') {
       let linkedInfo = "";
       BRANDS.forEach(brand => {
         let accs = u.linkedAccounts[brand] || [];
         linkedInfo += `• *${brand}*: ${accs.length > 0 ? accs.join(', ') : 'Chưa liên kết'}\n`;
       });
-
-      subMenuText = `💎 *TRUNG TÂM KHÁCH HÀNG*\n\n🏢 *Danh sách liên kết nhà cái của bạn:*\n${linkedInfo}\n👇 Chọn nhà cái bạn muốn liên kết thêm bên dưới:`;
-      
-      // Tạo nút bấm liên kết cho từng nhà cái
+      subMenuText = `🔗 *QUẢN LÝ LIÊN KẾT NHÀ CÁI*\n\n${linkedInfo}\n👇 Chọn nhà cái cần thao tác:`;
       subMenuKeyboard = {
         inline_keyboard: [
-          [
-            { text: '🔗 SC88', callback_data: 'link_SC88', style: 'success' },
-            { text: '🔗 C168', callback_data: 'link_C168', style: 'success' }
-          ],
-          [
-            { text: '🔗 CM88', callback_data: 'link_CM88', style: 'success' },
-            { text: '🔗 F8BET', callback_data: 'link_F8BET', style: 'success' }
-          ],
-          [{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start', style: 'primary' }]
+          [{ text: '🔗 SC88', callback_data: 'link_SC88', style: 'success' }, { text: '🔗 C168', callback_data: 'link_C168', style: 'success' }],
+          [{ text: '🔗 CM88', callback_data: 'link_CM88', style: 'success' }, { text: '🔗 F8BET', callback_data: 'link_F8BET', style: 'success' }],
+          [{ text: '◀ Quay lại Trung Tâm KH', callback_data: 'cshk_center', style: 'primary' }]
         ]
       };
-    } 
-    // Khi bấm chọn liên kết nhà cái cụ thể
+    }
     else if (data.startsWith('link_')) {
       const brand = data.replace('link_', '');
       userStates[chatId] = { action: 'waiting_link_account', brand: brand };
-      subMenuText = `🔗 *LIÊN KẾT TÀI KHOẢN ${brand}*\n\n👉 Vui lòng nhập **Tên đăng nhập hoặc ID tài khoản ${brand}** của bạn vào khung chat:`;
+      subMenuText = `🔗 *LIÊN KẾT TÀI KHOẢN ${brand}*\n\n👉 Nhập **Tên đăng nhập hoặc ID tài khoản ${brand}** vào khung chat:`;
     }
-    else if (data === 'bot_vietsub') {
-      subMenuText = '🤖 *BOT DỊCH VỤ VIETSUB*\nCông cụ hỗ trợ dịch thuật và quản lý tự động Vietsub.';
-    } 
+
+    // --- ADMIN PANEL ---
     else if (data === 'admin_panel') {
-        if (chatId !== ADMIN_ID) {
-            subMenuText = '⛔ Bạn không có quyền truy cập khu vực quản trị!';
-        } else {
-            subMenuText = '🛠️ *ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub*\nChào sếp, hệ thống đang vận hành bình thường. Tổng số user: ' + Object.keys(users).length;
-        }
-    } else {
-      subMenuText = '⚙️ Tính năng đang được cập nhật...';
+      if (chatId !== ADMIN_ID) {
+        subMenuText = '⛔ Bạn không có quyền truy cập khu vực quản trị!';
+      } else {
+        const totalUsers = Object.keys(users).length;
+        subMenuText = `🛠️ *ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub*\n\n📊 Thống kê: Có \`${totalUsers}\` user đang hoạt động trong bộ nhớ.`;
+        subMenuKeyboard = {
+          inline_keyboard: [
+            [{ text: '👥 Danh Sách User Online', callback_data: 'admin_list_users', style: 'success' }],
+            [{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start', style: 'primary' }]
+          ]
+        };
+      }
+    }
+    else if (data === 'admin_list_users') {
+      if (chatId !== ADMIN_ID) return;
+      let userListStr = "";
+      let i = 1;
+      for (let id in users) {
+        if (i > 10) { userListStr += `... và còn nhiều user khác.`; break; }
+        userListStr += `${i}. ${users[id].name} (\`${id}\`) - Ví: ${users[id].balance.toLocaleString()}đ\n`;
+        i++;
+      }
+      subMenuText = `👥 *DANH SÁCH THÀNH VIÊN*\n\n${userListStr || 'Chưa có user nào.'}`;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '◀ Quay lại Admin', callback_data: 'admin_panel', style: 'primary' }]] };
     }
 
     // Cập nhật lại giao diện tin nhắn
