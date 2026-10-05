@@ -2,20 +2,17 @@
 // ⚙️ CẤU HÌNH HỆ THỐNG CLOUDFLARE WORKER
 // ==========================================
 const ADMIN_ID = '6138197737'; 
-// Cấu hình Database tạm thời trong bộ nhớ (LƯU Ý: Sẽ bị reset khi Worker khởi động lại. Cần dùng Cloudflare KV để lưu trữ lâu dài)
 let users = {}; 
 const userStates = {};
 const userCooldowns = {};
 
 export default {
   async fetch(request, env, ctx) {
-    // 1. Chỉ chấp nhận các request dạng POST từ Telegram Webhook
     if (request.method === "POST") {
       try {
         const update = await request.json();
         const botToken = env.BOT_TOKEN || '8517026315:AAGSFv23fTHx2WFBSP25VJ5_-cBmU197BF8';
         
-        // Chạy xử lý ngầm để tránh Timeout cho Telegram
         ctx.waitUntil(handleUpdate(update, botToken, env));
         
         return new Response("OK", { status: 200 });
@@ -41,43 +38,38 @@ async function callTelegramApi(method, payload, botToken) {
 }
 
 // ==========================================
-// 3. HÀM TẠO GIAO DIỆN MENU CHÍNH (CHUẨN MẪU MÀU SẮC)
+// 3. HÀM TẠO GIAO DIỆN MENU CHÍNH (ĐÃ ĐỔI TÊN NÚT)
 // ==========================================
 function getMainMenuKeyboard() {
   return {
     inline_keyboard: [
-      // Hàng 1: Màu Đỏ (danger) và Xanh lá (success)
+      // Hàng 1
       [
-        { text: '🚀 MINIGAME LIVE', callback_data: 'minigame', style: 'danger' },
-        { text: '🛍️ SHOP CODE', callback_data: 'shop_code', style: 'success' }
+        { text: '🛍️ TRUNG TÂM MUA CODE MINI TRỰC TIẾP', callback_data: 'shop_code_mini', style: 'success' }
       ],
-      // Hàng 2: Màu Đỏ và Xanh lá
+      // Hàng 2
       [
-        { text: '💳 NẠP TIỀN', callback_data: 'deposit', style: 'danger' },
-        { text: '💎 TRUNG TÂM VIP', callback_data: 'vip', style: 'success' }
+        { text: '🌐 DỊCH VỤ MẠNG XÃ HỘI', callback_data: 'social_service', style: 'success' }
       ],
-      // Hàng 3: Toàn dải Xanh dương đậm (primary)
+      // Hàng 3
+      [
+        { text: '💳 NẠP TIỀN', callback_data: 'deposit', style: 'danger' }
+      ],
+      // Hàng 4
       [
         { text: '💎 TRUNG TÂM KHÁCH HÀNG', callback_data: 'cskh_center', style: 'primary' }
       ],
-      // Hàng 4: 
+      // Hàng 5
       [
-        { text: '🎬 DỊCH VỤ NUÔI Vietsub', callback_data: 'nuoi_vietsub', style: 'success' },
-        { text: '🤖 BOT DỊCH VỤ', url: 'https://t.me/your_bot_link', style: 'success' }
+        { text: '🤖 BOT DỊCH VỤ VIETSUB', callback_data: 'bot_vietsub', style: 'success' }
       ],
-      // Hàng 5:
+      // Hàng 6
       [
-        { text: '💬 NHÓM CHAT', url: 'https://t.me/your_group', style: 'success' },
-        { text: '📢 KÊNH THÔNG BÁO', url: 'https://t.me/your_channel', style: 'success' }
-      ],
-      // Hàng 6:
-      [
-        { text: '🎁 NHẬP GIFCODE', callback_data: 'giftcode', style: 'success' },
         { text: '🎧 LIÊN HỆ CSKH', url: 'https://t.me/your_support', style: 'success' }
       ],
-      // Hàng 7: Nút dài Xanh dương đậm - Đổi thành ADMIN QUẢN LÝ
+      // Hàng 7: Nút Quản trị
       [
-        { text: '👑 ADMIN QUẢN LÝ', callback_data: 'admin_panel', style: 'primary' }
+        { text: '🛠️ ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub', callback_data: 'admin_panel', style: 'primary' }
       ]
     ]
   };
@@ -87,14 +79,12 @@ function getMainMenuKeyboard() {
 // 4. LOGIC XỬ LÝ TIN NHẮN & NÚT BẤM
 // ==========================================
 async function handleUpdate(update, botToken, env) {
-  // XỬ LÝ TIN NHẮN VĂN BẢN
   if (update.message && update.message.text) {
     const msg = update.message;
     const chatId = msg.chat.id;
     const text = msg.text;
     const user = msg.from;
 
-    // Khởi tạo user nếu chưa có
     if (!users[chatId]) {
         users[chatId] = {
             name: user.first_name || 'Khách',
@@ -103,12 +93,11 @@ async function handleUpdate(update, botToken, env) {
         };
     }
 
-    // Lệnh /start
     if (text.startsWith('/start')) {
       const u = users[chatId];
       const welcomeMessage = `
 🤖 *BOT HENDY CYBERTECH 2026* [BOT CHÍNH] 🚀
-Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
+Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
 --------------------------------------------------
 💎 *VIP 0*
 💰 **Ví Chính:** \`${u.balance.toLocaleString()} VNĐ\`
@@ -123,7 +112,6 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       return;
     }
 
-    // Lệnh /admin
     if (text.startsWith('/admin')) {
         if (chatId.toString() !== ADMIN_ID) {
             await callTelegramApi('sendMessage', { chat_id: chatId, text: '⛔ Sếp không có quyền sử dụng bảng điều khiển này!' }, botToken);
@@ -138,17 +126,14 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
     }
   }
 
-  // XỬ LÝ NÚT BẤM (CALLBACK QUERY)
   if (update.callback_query) {
     const query = update.callback_query;
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
     const data = query.data;
 
-    // Đóng trạng thái loading của nút bấm ngay lập tức
     await callTelegramApi('answerCallbackQuery', { callback_query_id: query.id }, botToken);
 
-    // Xử lý nút quay lại Menu Chính
     if (data === 'back_start') {
       const u = users[chatId] || { name: 'Khách', balance: 0 };
       const welcomeMessage = `
@@ -175,38 +160,26 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       ]
     };
 
-    if (data === 'minigame') {
-      subMenuText = '🎮 *MINIGAME LIVE*\nTham gia các trò chơi may mắn nhận thưởng ngay!';
-    } else if (data === 'shop_code' || data === 'buy_code') {
-      subMenuText = '🛍️ *TRUNG TÂM MUA CODE*\nVui lòng chọn loại mã code bạn muốn mua:';
-      subMenuKeyboard = {
-        inline_keyboard: [
-          [{ text: '🎮 V2 LIÊN KẾT', callback_data: 'v2_links', style: 'success' }],
-          [{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start', style: 'primary' }]
-        ]
-      };
+    if (data === 'shop_code_mini') {
+      subMenuText = '🛍️ *TRUNG TÂM MUA CODE MINI TRỰC TIẾP*\nVui lòng chọn các gói mã code trực tiếp bên dưới:';
+    } else if (data === 'social_service') {
+      subMenuText = '🌐 *DỊCH VỤ MẠNG XÃ HỘI*\nHệ thống cung cấp các dịch vụ tăng tương tác uy tín.';
     } else if (data === 'deposit') {
-      subMenuText = '💳 *NẠP TIỀN VÀO HỆ THỐNG*\nVui lòng chọn hình thức nạp tiền bên dưới.';
-    } else if (data === 'vip') {
-      subMenuText = '💎 *TRUNG TÂM VIP*\nQuyền lợi và các mốc nâng hạng VIP của bạn.';
-    } else if (data === 'cshk_center' || data === 'cskh_center') {
+      subMenuText = '💳 *NẠP TIỀN VÀO HỆ THỐNG*\nVui lòng chọn hình thức nạp tiền.';
+    } else if (data === 'cshk_center') {
       subMenuText = '💎 *TRUNG TÂM KHÁCH HÀNG*\nQuản lý tài khoản, lịch sử giao dịch và hỗ trợ thành viên.';
-    } else if (data === 'nuoi_vietsub') {
-      subMenuText = '🎬 *DỊCH VỤ NUÔI VIETSUB*\nHệ thống tự động nuôi và hỗ trợ Vietsub chuyên nghiệp.';
-    } else if (data === 'giftcode') {
-      subMenuText = '🎁 *NHẬP GIFCODE*\nHãy gửi mã quà tặng của bạn vào đây.';
+    } else if (data === 'bot_vietsub') {
+      subMenuText = '🤖 *BOT DỊCH VỤ VIETSUB*\nCông cụ hỗ trợ dịch thuật và quản lý tự động Vietsub.';
     } else if (data === 'admin_panel') {
-      // Kiểm tra quyền Admin khi bấm nút Admin Quản Lý
-      if (chatId.toString() !== ADMIN_ID) {
-        await callTelegramApi('sendMessage', { chat_id: chatId, text: '⛔ Bạn không có quyền truy cập khu vực quản trị này!' }, botToken);
-        return;
-      }
-      subMenuText = '👑 *BẢNG ADMIN QUẢN LÝ*\n• Tổng số user: ' + Object.keys(users).length + '\n• Lệnh nhanh: Gõ `/admin` trong khung chat.';
+        if (chatId.toString() !== ADMIN_ID) {
+            subMenuText = '⛔ Bạn không có quyền truy cập khu vực quản trị!';
+        } else {
+            subMenuText = '🛠️ *ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub*\nChào sếp, hệ thống đang vận hành bình thường.';
+        }
     } else {
-      subMenuText = '⚙️ Tính năng đang được phát triển thêm...';
+      subMenuText = '⚙️ Tính năng đang được cập nhật...';
     }
 
-    // Cập nhật nội dung tin nhắn thành menu con tương ứng
     await callTelegramApi('editMessageText', {
       chat_id: chatId,
       message_id: messageId,
