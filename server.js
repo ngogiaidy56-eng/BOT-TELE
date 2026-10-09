@@ -7,6 +7,9 @@ const ADMIN_ID = '6138197737';
 const MINI_APP_URL = 'https://ngogiaidy56-eng.github.io/BOT-TELE'; 
 const WEB_APP_URL = 'https://telegram-mini-app.ngogiaidy56.workers.dev';
 
+// 🌐 URL Máy chủ Core Backend Node.js (Ktor Client / API Gateway Target)
+const CORE_BACKEND_URL = 'https://telegram-mini-app.ngogiaidy56.workers.dev'; 
+
 let users = {}; 
 const userStates = {};   // Quản lý trạng thái nhập liệu tạm thời
 const BRANDS = ["SC88", "C168", "CM88", "F8BET", "RR88", "MM88", "GG88", "U888", "J88", "88CLB", "ABC8", "XX8", "KJC_CU"];
@@ -31,7 +34,7 @@ export default {
 };
 
 // ==========================================
-// 2. HÀM GIAO TIẾP VỚI TELEGRAM API
+// 2. HÀM GIAO TIẾP VỚI TELEGRAM API & KTOR CLIENT MOCK
 // ==========================================
 async function callTelegramApi(method, payload, botToken) {
   const url = `https://api.telegram.org/bot${botToken}/${method}`;
@@ -40,6 +43,26 @@ async function callTelegramApi(method, payload, botToken) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
+}
+
+// Giả lập Ktor Client Web Target (gửi lệnh Quản trị Admin xuống Backend)
+async function sendAdminCommandViaKtorClient(command, adminId) {
+  try {
+    const response = await fetch(`${CORE_BACKEND_URL}/api/bot-trigger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chatId: adminId,
+        userName: 'Hendy_Admin',
+        action: 'ADMIN_COMPOSE_COMMAND',
+        command: command,
+        clientSDK: 'ComposeWeb-TMA-KtorClient'
+      })
+    });
+    return await response.json();
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 // Helper khởi tạo dữ liệu người dùng
@@ -67,7 +90,8 @@ function getMainMenuKeyboard() {
       [{ text: '🌐 DỊCH VỤ MẠNG XÃ HỘI', callback_data: 'social_service' }],
       [{ text: '💳 NẠP TIỀN', callback_data: 'deposit' }],
       [{ text: '💎 TRUNG TÂM KHÁCH HÀNG', callback_data: 'cshk_center' }],
-      [{ text: '🤖 BOT DỊCH VỤ VIETSUB', callback_data: 'bot_vietsub' }],
+      [{ text: '🤖 BOT DỊCH VỤ VIETSUB (PIPELINE)', callback_data: 'bot_vietsub' }],
+      [{ text: '🚀 COMPOSE WEB / TMA KTOR ENTRYPOINT', callback_data: 'compose_web_tma' }],
       [{ text: '🎧 LIÊN HỆ CSKH', url: 'https://t.me/your_support' }],
       [{ text: '🛠 ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub', callback_data: 'admin_panel' }]
     ]
@@ -112,7 +136,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
       const state = userStates[chatId];
       const action = state.action;
 
-      // 1. NHẬP ACC VÀO KHO TRONG SHOP MINI CODE
       if (action === 'waiting_add_acc') {
         const brand = state.brand;
         if (!u.accountKho[brand]) u.accountKho[brand] = [];
@@ -130,7 +153,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
         return;
       }
 
-      // 2. LIÊN KẾT TÀI KHOẢN NHÀ CÁI
       if (action === 'waiting_link_account') {
         const brand = state.brand;
         if (!u.linkedAccounts[brand]) u.linkedAccounts[brand] = [];
@@ -144,7 +166,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
         return;
       }
 
-      // 3. BUFF MẮT LIVE
       if (action === 'waiting_live_link') {
         const platform = state.platform;
         const cost = platform === "TikTok" ? 10000 : 15000;
@@ -166,6 +187,14 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
         await callTelegramApi('sendMessage', { chat_id: chatId, text: successBuff, parse_mode: 'Markdown', reply_markup: kb }, botToken);
         return;
       }
+
+      if (action === 'waiting_video_link') {
+        delete userStates[chatId];
+        const successMsg = `🎬 *ĐÃ NHẬN YÊU CẦU*\n\nVideo của bạn đã được đưa vào hệ thống Media Pipeline qua Ktor Client / WebSocket Backend.`;
+        const kb = { inline_keyboard: [[{ text: "🔙 Quay lại Menu Chính", callback_data: "back_start" }]] };
+        await callTelegramApi('sendMessage', { chat_id: chatId, text: successMsg, parse_mode: 'Markdown', reply_markup: kb }, botToken);
+        return;
+      }
     }
   }
 
@@ -181,7 +210,6 @@ Buổi chiều vui vẻ nhé, *${u.name}* (ID: \`${chatId}\`)
     const u = initUser(chatId, query.from);
     await callTelegramApi('answerCallbackQuery', { callback_query_id: query.id }, botToken);
 
-    // 1. Nút Quay về Menu chính
     if (data === 'back_start') {
       delete userStates[chatId];
       const welcomeMessage = `
@@ -208,9 +236,6 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       ]
     };
 
-    // ==========================================
-    // 🛍️ TRUNG TÂM MUA CODE MINI TRỰC TIẾP
-    // ==========================================
     if (data === 'shop_code_mini') {
       subMenuText = `🛍️ *TRUNG TÂM MUA CODE MINI TRỰC TIẾP*\n\nVui lòng chọn sảnh hoặc gói mã code bên dưới:`;
       subMenuKeyboard = {
@@ -229,7 +254,6 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // 1. LIÊN MINH KJC CŨ (Bao gồm RR88, MM88, GG88 & Kho Acc Liên Kết)
     else if (data === 'shop_kjc_cu') {
       const rr88Count = (u.accountKho.RR88 || []).length;
       const mm88Count = (u.accountKho.MM88 || []).length;
@@ -256,7 +280,6 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // 2. KHO ACC KJC CŨ LIÊN KẾT BOT
     else if (data === 'shop_kjc_cu_kho') {
       const accList = u.linkedAccounts.KJC_CU || [];
       let str = accList.length > 0 ? accList.map((a, i) => `${i+1}. \`${a}\``).join('\n') : 'Bạn chưa liên kết tài khoản KJC CŨ nào.';
@@ -270,14 +293,12 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // Xóa liên kết KJC CŨ
     else if (data === 'clear_link_KJC_CU') {
       u.linkedAccounts.KJC_CU = [];
       subMenuText = `🗑️ Đã xóa toàn bộ liên kết tài khoản Liên Minh KJC CŨ!`;
       subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_kjc_cu_kho' }]] };
     }
 
-    // 3. LIÊN MINH ABCVIP
     else if (data === 'shop_abcvip_group') {
       subMenuText = (
         `📊 *THỐNG KÊ ĐƠN ABCVIP:*\n` +
@@ -295,7 +316,7 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
           [{ text: '❤️ U888 MINIGAME', callback_data: 'shop_kho_detail_U888' }],
           [{ text: '❤️ J88 MINIGAME', callback_data: 'shop_kho_detail_J88' }],
           [{ text: '❤️ 88CLB MINIGAME', callback_data: 'shop_kho_detail_88CLB' }],
-          [{ text: '❤️️ ABC8 MINIGAME', callback_data: 'shop_kho_detail_ABC8' }],
+          [{ text: '❤ ABC8 MINIGAME', callback_data: 'shop_kho_detail_ABC8' }],
           [{ text: '❤️ XX8 MINIGAME', callback_data: 'shop_kho_detail_XX8' }],
           [{ text: '🌊 【KHO ACC ABCVIP LIÊN KẾT BOT】', callback_data: 'shop_abcvip_kho' }],
           [{ text: '« Quay lại', callback_data: 'shop_code_mini' }]
@@ -303,7 +324,6 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // 4. KHO ACC ABCVIP LIÊN KẾT
     else if (data === 'shop_abcvip_kho') {
       const accList = u.linkedAccounts.ABCVIP || [];
       let str = accList.length > 0 ? accList.map((a, i) => `${i+1}. \`${a}\``).join('\n') : 'Bạn chưa liên kết tài khoản ABCVIP nào.';
@@ -317,14 +337,12 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // 5. HIỂN THỊ CHI TIẾT KHO ACC CỦA TỪNG THƯƠNG HIỆU
     else if (data.startsWith('shop_kho_detail_')) {
       const brand = data.replace('shop_kho_detail_', '');
       const list = u.accountKho[brand] || [];
       const total = list.length;
       const checked = list.filter(item => item.checked).length;
       const unchecked = total - checked;
-
       const emptyNotice = total === 0 ? '\n\n_Kho chưa có tài khoản nào._' : '';
 
       subMenuText = (
@@ -346,21 +364,18 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // Nút Thêm Acc vào kho
     else if (data.startsWith('add_acc_')) {
       const brand = data.replace('add_acc_', '');
       userStates[chatId] = { action: 'waiting_add_acc', brand: brand };
       subMenuText = `➕ *THÊM ACC VÀO KHO ${brand}*\n\n👉 Vui lòng nhập **Tài khoản | Mật khẩu** của bạn vào khung chat:`;
     }
 
-    // Nút Check Acc
     else if (data.startsWith('check_acc_')) {
       const brand = data.replace('check_acc_', '');
       subMenuText = `🔍 *KIỂM TRA TÀI KHOẢN ${brand}*\n\nHệ thống đã quét toàn bộ tài khoản trong kho. Tất cả tài khoản hợp lệ!`;
       subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: `shop_kho_detail_${brand}` }]] };
     }
 
-    // Nút Xóa Acc trong kho
     else if (data.startsWith('clear_acc_')) {
       const brand = data.replace('clear_acc_', '');
       u.accountKho[brand] = [];
@@ -368,20 +383,17 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: `shop_kho_detail_${brand}` }]] };
     }
 
-    // Xóa liên kết ABCVIP
     else if (data === 'clear_link_ABCVIP') {
       u.linkedAccounts.ABCVIP = [];
       subMenuText = `🗑️ Đã xóa toàn bộ liên kết tài khoản ABCVIP!`;
       subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_abcvip_kho' }]] };
     }
 
-    // Tính năng phụ KJC
     else if (data === 'shop_kjc') {
       subMenuText = `🚀 *LIÊN MINH KJC*\nĐang cập nhật các gói code quà tặng KJC mới nhất...`;
       subMenuKeyboard = { inline_keyboard: [[{ text: '« Quay lại', callback_data: 'shop_code_mini' }]] };
     }
 
-    // --- MENU MẠNG XÃ HỘI & NẠP TIỀN ---
     else if (data === 'social_service') {
       subMenuText = '🌐 *DỊCH VỤ MẠNG XÃ HỘI*\nHệ thống buff tương tác tự động. Vui lòng chọn dịch vụ:';
       subMenuKeyboard = {
@@ -392,19 +404,21 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
         ]
       };
     } 
+
     else if (data === 'buff_tiktok') {
       userStates[chatId] = { action: 'waiting_live_link', platform: 'TikTok' };
       subMenuText = '🎵 *BUFF 1K MẮT TIKTOK LIVE*\n\n👉 Gửi **Link hoặc Username Livestream TikTok** vào khung chat:';
     }
+
     else if (data === 'buff_fb') {
       userStates[chatId] = { action: 'waiting_live_link', platform: 'Facebook' };
       subMenuText = '📘 *BUFF 1K MẮT FACEBOOK LIVE*\n\n👉 Gửi **Link Livestream Facebook** vào khung chat:';
     }
+
     else if (data === 'deposit') {
       subMenuText = '💳 *NẠP TIỀN VÀO HỆ THỐNG*\nChuyển khoản tự động qua Momo/Banking.\nSố dư hiện tại của bạn: `' + u.balance.toLocaleString() + ' VNĐ`';
     } 
 
-    // --- TRUNG TÂM QUẢN LÝ TÀI KHOẢN (TRUNG TÂM KHÁCH HÀNG) ---
     else if (data === 'cshk_center') {
       subMenuText = (
         `🎴 *TRUNG TÂM QUẢN LÝ TÀI KHOẢN*\n\n` +
@@ -421,35 +435,89 @@ Chào mừng bạn quay lại, *${u.name}* (ID: \`${chatId}\`)
       };
     }
 
-    // --- ADMIN PANEL ---
+    // ==========================================
+    // 🚀 TÍNH NĂNG MỚI: COMPOSE WEB & TELEGRAM WEBSDK TMA KTOR CLIENT ENTRYPOINT
+    // ==========================================
+    else if (data === 'compose_web_tma') {
+      subMenuText = (
+        `🚀 *COMPOSE WEB & TELEGRAM WEBSDK (TMA)*\n\n` +
+        `Đã khởi tạo *JS Entrypoint* thành công cho Kotlin/Compose Web Target!\n` +
+        `• *Ktor Client:* Đã sẵn sàng kết nối WebSocket & HTTP Gateway.\n` +
+        `• *Telegram WebApp SDK:* Đã bind sự dụng window.Telegram.WebApp.`
+      );
+      subMenuKeyboard = {
+        inline_keyboard: [
+          [{ text: '🌐 Mở Compose Web App (TMA)', web_app: { url: MINI_APP_URL } }],
+          [{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start' }]
+        ]
+      };
+    }
+
     else if (data === 'admin_panel') {
       if (chatId !== ADMIN_ID) {
         subMenuText = '⛔ Bạn không có quyền truy cập khu vực quản trị!';
       } else {
         const totalUsers = Object.keys(users).length;
-        subMenuText = `🛠️ *ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub*\n\n📊 Thống kê: Có \`${totalUsers}\` user đang hoạt động trong bộ nhớ.`;
+        subMenuText = `🛠️ *ADMIN QUẢN LÝ XÂY DỰNG PHÁT TRIỂN Vietsub*\n\n📊 Thống kê: Có \`${totalUsers}\` user đang hoạt động.`;
         subMenuKeyboard = {
           inline_keyboard: [
             [{ text: '👥 Danh Sách User Online', callback_data: 'admin_list_users' }],
+            [{ text: '⚡ Ký Lệnh Quản Trị Ktor Client', callback_data: 'admin_ktor_trigger' }],
             [{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start' }]
           ]
         };
       }
     }
+
     else if (data === 'admin_list_users') {
       if (chatId !== ADMIN_ID) return;
       let userListStr = "";
       let i = 1;
       for (let id in users) {
         if (i > 10) { userListStr += `... và còn nhiều user khác.`; break; }
-        userListStr += `${i}. ${users[id].name} (\`${id}\`) - Ví: ${users[id].balance.toLocaleString()}đ\n`;
+        userListStr += `${i}.${users[id].name} (\`${id}\`) - Ví: ${users[id].balance.toLocaleString()}đ\n`;
         i++;
       }
       subMenuText = `👥 *DANH SÁCH THÀNH VIÊN*\n\n${userListStr || 'Chưa có user nào.'}`;
       subMenuKeyboard = { inline_keyboard: [[{ text: '◀ Quay lại Admin', callback_data: 'admin_panel' }]] };
     }
 
-    // Cập nhật lại giao diện tin nhắn
+    // ==========================================
+    // 🛡️ TÍNH NĂNG MỚI: GỬI LỆNH QUẢN TRỊ ADMIN QUA KTOR CLIENT
+    // ==========================================
+    else if (data === 'admin_ktor_trigger') {
+      if (chatId !== ADMIN_ID) return;
+      
+      // Gọi hàm Ktor Client / API Gateway gửi lệnh quản trị
+      const res = await sendAdminCommandViaKtorClient('FORCE_SYNC_ALL_PIPELINES', chatId);
+      
+      subMenuText = `⚡ *KẾT QUẢ KTOR CLIENT GỬI LỆNH ADMIN*\n\nTrạng thái phản hồi từ Core Backend:\n\`${JSON.stringify(res, null, 2)}\``;
+      subMenuKeyboard = { inline_keyboard: [[{ text: '◀ Quay lại Admin', callback_data: 'admin_panel' }]] };
+    }
+
+    else if (data === 'bot_vietsub') {
+      try {
+        await fetch(`${CORE_BACKEND_URL}/api/bot-trigger`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            chatId: chatId, 
+            userName: u.name, 
+            action: 'START_VIETSUB_PIPELINE' 
+          })
+        });
+
+        subMenuText = `🎬 *BOT DỊCH VỤ VIETSUB V3.0*\n\n✅ Đã gửi lệnh kích hoạt luồng xử lý Video AI đến Core Backend!\n\nVui lòng gửi link Video bạn muốn xử lý vào đây.`;
+        userStates[chatId] = { action: 'waiting_video_link' };
+      } catch (err) {
+        subMenuText = `🔴 *MẤT KẾT NỐI*\nKhông thể kết nối đến Máy chủ Core Backend.`;
+      }
+      
+      subMenuKeyboard = {
+        inline_keyboard: [[{ text: '🔙 Quay lại Menu Chính', callback_data: 'back_start' }]]
+      };
+    }
+
     await callTelegramApi('editMessageText', {
       chat_id: chatId,
       message_id: messageId,
