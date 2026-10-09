@@ -5,7 +5,7 @@ const ADMIN_ID = '6138197737';
 
 // 🔗 Thay đổi đường dẫn Mini App và Web của bạn tại đây
 const MINI_APP_URL = 'https://ngogiaidy56-eng.github.io/BOT-TELE'; 
-const WEB_APP_URL = 'https://your-web-url.com';
+const WEB_APP_URL = 'https://telegram-mini-app.ngogiaidy56.workers.dev';
 
 let users = {}; 
 const userStates = {};   // Quản lý trạng thái nhập liệu tạm thời
